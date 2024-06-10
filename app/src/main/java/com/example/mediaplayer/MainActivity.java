@@ -4,12 +4,18 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.view.KeyEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.SeekBar;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
@@ -18,11 +24,15 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements SensorEventListener{
     MusicService mService;
     Button btnSad, btnNeutral, btnMotivational;
     EditText etVol;
     AudioManager audioManager;
+    SeekBar volumeBar;
+    private SensorManager mSensorManager;
+    float lastProximitySensor;
+    boolean firstReading = true;
 
     boolean mBound = false;
     @Override
@@ -40,7 +50,29 @@ public class MainActivity extends AppCompatActivity {
         btnMotivational = findViewById(R.id.btn_motivational);
         etVol = findViewById(R.id.et_vol);
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        volumeBar = findViewById(R.id.volume_bar);
 
+        mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+
+        volumeBar.setMax(audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC));
+        int volumeLevel = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
+        volumeBar.setProgress(volumeLevel);
+        volumeBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, progress, 0);
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+
+            }
+        });
     }
 
     @Override
@@ -49,14 +81,9 @@ public class MainActivity extends AppCompatActivity {
         // Bind to LocalService.
         Intent intent = new Intent(this, MusicService.class);
         bindService(intent, connection, Context.BIND_AUTO_CREATE);
+        mSensorManager.registerListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY), SensorManager.SENSOR_DELAY_NORMAL);
     }
 
-    @Override
-    protected void onStop() {
-        super.onStop();
-        unbindService(connection);
-        mBound = false;
-    }
         /** Defines callbacks for service binding, passed to bindService(). */
     private final ServiceConnection connection = new ServiceConnection() {
 
@@ -103,10 +130,88 @@ public class MainActivity extends AppCompatActivity {
 
         showToast("Vol Max: " + audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC));
         audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0 );
-
+        volumeBar.setProgress(volume);
     }
 
     private void showToast(String message) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
     }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+
+        switch (keyCode) {
+            case KeyEvent.KEYCODE_VOLUME_DOWN:
+            case KeyEvent.KEYCODE_VOLUME_UP: {
+                super.onKeyDown(keyCode, event);
+                int volumeLevel = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
+                volumeBar.setProgress(volumeLevel);
+                return super.onKeyDown(keyCode, event);
+            }
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        unbindService(connection);
+        mBound = false;
+    }
+
+    @Override
+    protected void onDestroy()
+    {
+        mSensorManager.unregisterListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY));
+        super.onDestroy();
+    }
+
+    @Override
+    protected void onPause()
+    {
+        mSensorManager.unregisterListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY));
+        super.onPause();
+    }
+
+    @Override
+    protected void onRestart()
+    {
+        mSensorManager.registerListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY), SensorManager.SENSOR_DELAY_NORMAL);
+        super.onRestart();
+    }
+
+    @Override
+    protected void onResume()
+    {
+        super.onResume();
+        mSensorManager.registerListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY), SensorManager.SENSOR_DELAY_NORMAL);
+    }
+
+
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        synchronized (this) {
+            switch (event.sensor.getType()) {
+                case Sensor.TYPE_PROXIMITY :
+                    if(firstReading){
+                        lastProximitySensor = event.values[0];
+                        firstReading = false;
+                    }
+
+                    if(lastProximitySensor != event.values[0])
+                        if(event.values[0] <= 0)
+                            mService.playStopMusic();
+
+                    lastProximitySensor = event.values[0];
+                    break;
+            }
+        }
+
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+
+    }
+
 }

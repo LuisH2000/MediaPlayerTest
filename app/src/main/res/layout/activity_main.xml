@@ -35,9 +35,9 @@
         android:layout_height="wrap_content"
         android:autofillHints=""
         android:ems="10"
+        android:hint="Volumen"
         android:inputType="number"
         android:minHeight="48dp"
-        android:text="Volumen"
         tools:ignore="LabelFor" />
 
     <Button
@@ -46,4 +46,9 @@
         android:layout_height="wrap_content"
         android:onClick="setVolume"
         android:text="Set Volume" />
+
+    <SeekBar
+        android:id="@+id/volume_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
 </LinearLayout>

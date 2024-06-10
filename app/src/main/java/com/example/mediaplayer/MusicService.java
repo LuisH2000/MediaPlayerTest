@@ -2,6 +2,10 @@ package com.example.mediaplayer;
 
 import android.app.Service;
 import android.content.Intent;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.media.MediaPlayer;
 import android.os.Binder;
 import android.os.IBinder;
@@ -13,13 +17,17 @@ public class MusicService extends Service {
 
 
     @Override
+    public void onCreate() {
+        super.onCreate();
+    }
+
+    @Override
     //On destroy se invoca cuando se ejcuta stopService
     public void onDestroy()
     {
         Toast.makeText(this,"Servicio detenido",Toast.LENGTH_SHORT).show();
         reproductor.stop();
     }
-
 
     public class LocalBinder extends Binder {
         MusicService getService() {
@@ -54,6 +62,14 @@ public class MusicService extends Service {
             reproductor.setLooping(true);
             reproductor.start();
         }
+    }
+
+    public void playStopMusic()
+    {
+        if(reproductor.isPlaying())
+            reproductor.pause();
+        else
+            reproductor.start();
     }
 
     private void showToast(String message) {
